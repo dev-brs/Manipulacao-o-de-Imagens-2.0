@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <direct.h>
 
 using namespace std;
 
@@ -34,16 +35,29 @@ class Imagem
 {
     private:
         string nome_da_img;
+        string diretorio_saida;
+        string caminho_do_arquivo; // Novo membro para armazenar o caminho do arquivo
         CAB cabecalho;
         DADOS dados;
+
+        string extrairDiretorio(const string &caminho)
+        {
+            size_t pos = caminho.find_last_of("/\\");
+            if (pos != string::npos)
+            {
+                return caminho.substr(0, pos + 1);
+            }
+            return "";
+        }
     public:
         // Construtor
         Imagem(const string &nome_da_imagem)
         {
             nome_da_img = nome_da_imagem;
+            diretorio_saida = extrairDiretorio(nome_da_imagem);
+            caminho_do_arquivo = nome_da_imagem; // Inicialize o caminho do arquivo aqui
             __init__(nome_da_imagem);
         }
-
         // Inicialização da instância
         void __init__(const string &nome_da_imagem)
         {
@@ -61,8 +75,39 @@ class Imagem
             imagem.close();
         }
 
+        void diretorioSaida(const string &caminho_de_saida_escolhido)
+        {
+            diretorio_saida = caminho_de_saida_escolhido + '/';
+
+            // Verificar se o diretório de saída existe e criar se necessário
+            if (!diretorioExiste(diretorio_saida))
+            {
+                if (criarDiretorio(diretorio_saida))
+                {
+                    cout << "Diretório de saída criado: " << diretorio_saida << endl;
+                }
+                else
+                {
+                    cerr << "Erro: Não foi possível criar o diretório de saída." << endl;
+                    diretorio_saida = ""; // Limpar o diretório de saída se houver erro
+                }
+            }
+        }
+
+        // Função para verificar se um diretório existe
+        bool diretorioExiste(const string &diretorio)
+        {
+            ifstream dir(diretorio);
+            return dir.good();
+        }
+
+        // Função para criar um diretório
+        bool criarDiretorio(const string &diretorio)
+        {
+            return mkdir(diretorio.c_str()) == 0;
+        }
         // Amostra de dados
-        void imprimirDados(const string &nome_da_img)
+        void imprimirDados()
         {
             cout << "Dados do Cabecalho:" << endl;
             cout << "Tipo do arquivo: " << cabecalho.fType[0] << cabecalho.fType[1] << endl;
@@ -77,7 +122,7 @@ class Imagem
         // Copiar imagem
         void copiar(const string &nome_nova_imagem)
         {
-            ofstream nova_imagem(nome_nova_imagem, ios::binary);
+            ofstream nova_imagem(diretorio_saida + nome_nova_imagem, ios::binary);
 
             if (!nova_imagem.is_open())
             {
@@ -88,7 +133,7 @@ class Imagem
             nova_imagem.write(reinterpret_cast<char *>(&cabecalho), 14);
             nova_imagem.write(reinterpret_cast<char *>(&dados), 40);
 
-            ifstream imagem("C:/Users/berna/Desktop/lg.bmp", ios::binary); // Adicione esta linha para reabrir o arquivo de origem
+            ifstream imagem(caminho_do_arquivo, ios::binary); // Use o caminho do arquivo salvo
             imagem.seekg(cabecalho.byteshift, ios::beg); // Pule para a posição correta dos pixels
 
             // Agora, copiar os pixels
@@ -105,13 +150,13 @@ class Imagem
             nova_imagem.close();
             imagem.close();
 
-            cout << "Nova imagem criada: " << nome_nova_imagem << endl;
+            cout << "Nova imagem criada: " << diretorio_saida + nome_nova_imagem << endl;
         }
 
         // Manipulação da imagem
         void pretoBranco()
         {
-            ofstream nova_imagem_pb("C:/Users/berna/Desktop/nova_imagem_pb.bmp", ios::binary);
+            ofstream nova_imagem_pb(diretorio_saida + "nova_imagem_pb.bmp", ios::binary); 
 
             if (!nova_imagem_pb.is_open())
             {
@@ -122,7 +167,7 @@ class Imagem
             nova_imagem_pb.write(reinterpret_cast<char*>(&cabecalho), 14);
             nova_imagem_pb.write(reinterpret_cast<char*>(&dados), 40);
 
-            ifstream imagem("C:/Users/berna/Desktop/lg.bmp", ios::binary); // Adicione esta linha para reabrir o arquivo de origem
+            ifstream imagem(caminho_do_arquivo, ios::binary);
             imagem.seekg(cabecalho.byteshift, ios::beg); // Pule para a posição correta dos pixels
 
             int linha_bytes = dados.largura * 3;
@@ -153,13 +198,11 @@ class Imagem
 
 int main()
 {
-    string nome_da_imagem = "C:/Users/berna/Desktop/lg.bmp";
-    string nome_nova_imagem = "C:/Users/berna/Desktop/nova_imagem.bmp";
+    Imagem minhaImagem("C:/Users/berna/Desktop/lg.bmp");
 
-    Imagem minhaImagem(nome_da_imagem);
-
-    minhaImagem.imprimirDados(nome_da_imagem);
-
+    minhaImagem.diretorioSaida("C:/Users/berna/Desktop/e agora");
+    minhaImagem.imprimirDados();
+    minhaImagem.copiar("nova_imagem.bmp");
     minhaImagem.pretoBranco();
 
     return 0;
