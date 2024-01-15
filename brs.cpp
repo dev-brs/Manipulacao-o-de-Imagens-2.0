@@ -40,6 +40,7 @@ class Imagem
         CAB cabecalho;
         DADOS dados;
 
+        // Diretório Default
         string extrairDiretorio(const string &caminho)
         {
             size_t pos = caminho.find_last_of("/\\");
@@ -48,6 +49,17 @@ class Imagem
                 return caminho.substr(0, pos + 1);
             }
             return "";
+        }
+        // Função para verificar se um diretório existe
+        bool diretorioExiste(const string &diretorio)
+        {
+            ifstream dir(diretorio);
+            return dir.good();
+        }
+        // Função para criar um diretório
+        bool criarDiretorio(const string &diretorio)
+        {
+            return mkdir(diretorio.c_str()) == 0;
         }
     public:
         // Construtor
@@ -74,7 +86,7 @@ class Imagem
 
             imagem.close();
         }
-
+        // Inicialização de um diretório de saída especifico, caso não seja utilizado, será utilizado o mesmo diretório da imagem original
         void diretorioSaida(const string &caminho_de_saida_escolhido)
         {
             diretorio_saida = caminho_de_saida_escolhido + '/';
@@ -92,19 +104,6 @@ class Imagem
                     diretorio_saida = ""; // Limpar o diretório de saída se houver erro
                 }
             }
-        }
-
-        // Função para verificar se um diretório existe
-        bool diretorioExiste(const string &diretorio)
-        {
-            ifstream dir(diretorio);
-            return dir.good();
-        }
-
-        // Função para criar um diretório
-        bool criarDiretorio(const string &diretorio)
-        {
-            return mkdir(diretorio.c_str()) == 0;
         }
         // Amostra de dados
         void imprimirDados()
@@ -194,16 +193,73 @@ class Imagem
 
             cout << "Nova imagem em preto e branco criada." << endl;
         }
+
+        void blur()
+        {
+            ofstream nova_imagem_blur(diretorio_saida + "nova_imagem_blur.bmp", ios::binary);
+
+            if (!nova_imagem_blur.is_open())
+            {
+                cerr << "Erro: Não foi possível criar a nova imagem com efeito blur." << endl;
+                return;
+            }
+
+            nova_imagem_blur.write(reinterpret_cast<char*>(&cabecalho), 14);
+            nova_imagem_blur.write(reinterpret_cast<char*>(&dados), 40);
+
+            ifstream imagem(caminho_do_arquivo, ios::binary);
+            imagem.seekg(cabecalho.byteshift, ios::beg); // Pule para a posição correta dos pixels
+
+            int linha_bytes = dados.largura * 3;
+            vector<char> linha(linha_bytes);
+            vector<char> linha_blur(linha_bytes);
+
+            for (unsigned int i = 0; i < dados.altura; ++i)
+            {
+                imagem.read(&linha[0], linha_bytes);
+
+                for (unsigned int j = 0; j < linha_bytes; j += 3)
+                {
+                    unsigned int aux = j / 3;
+                    int media_red = linha[j];
+                    int media_green = linha[j + 1];
+                    int media_blue = linha[j + 2];
+
+                    if (aux > 0 && aux < dados.largura - 1)
+                    {
+                        media_red += (linha[j - 3] + linha[j] + linha[j + 3]) / 3; // pixels na mesma linha
+                        media_green += (linha[j - 2] + linha[j + 1] + linha[j + 4]) / 3; // pixels na mesma linha
+                        media_blue += (linha[j - 1] + linha[j + 2] + linha[j + 5]) / 3; // pixels na mesma linha
+
+                        media_red /= 2;
+                        media_green /= 2;
+                        media_blue /= 2;
+                    }
+
+                    linha_blur[j] = media_red;
+                    linha_blur[j + 1] = media_green;
+                    linha_blur[j + 2] = media_blue;
+                }
+
+                nova_imagem_blur.write(&linha_blur[0], linha_bytes);
+            }
+
+            imagem.close();
+            nova_imagem_blur.close();
+
+            cout << "Nova imagem com efeito blur criada." << endl;
+        }
+
 };
 
 int main()
 {
-    Imagem minhaImagem("C:/Users/berna/Desktop/lg.bmp");
+    Imagem minhaImagem("C:/Users/berna/Desktop/livro.bmp");
 
     minhaImagem.diretorioSaida("C:/Users/berna/Desktop/e agora");
     minhaImagem.imprimirDados();
     minhaImagem.copiar("nova_imagem.bmp");
-    minhaImagem.pretoBranco();
-
+    minhaImagem.blur();
+    
     return 0;
 }
